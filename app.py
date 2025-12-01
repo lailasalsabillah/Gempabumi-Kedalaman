@@ -11,54 +11,28 @@ from modeling_gempa import predict_depth_class
 st.set_page_config(
     page_title="Prediksi Kedalaman Gempa",
     layout="wide",
-    page_icon="🌋"
+    page_icon="🌋",
 )
 
 # ----------------------------------------
-# CSS Background
+# CSS sederhana (opsional)
 # ----------------------------------------
-bg_home = """
+BG_HOME = """
 <style>
-[data-testid="stAppViewContainer"] {
-    background-image: url('https://images.unsplash.com/photo-1502126324834-38f0401b37b0?auto=format&fit=crop&w=1350&q=80');
-    background-size: cover;
-    background-position: center;
+.main-block {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 2rem;
+    border-radius: 1rem;
 }
 </style>
 """
 
-bg_white = """
+BG_WHITE = """
 <style>
-[data-testid="stAppViewContainer"] {
-    background: #ffffff !important;
-}
 </style>
 """
 
-# ----------------------------------------
-# CSS Card
-# ----------------------------------------
-st.markdown("""
-<style>
-.result-card {
-    background: #f8f9fa;
-    padding: 22px;
-    border-radius: 15px;
-    border: 1px solid #e1e1e1;
-    margin-bottom: 20px;
-    box-shadow: 1px 2px 6px rgba(0,0,0,0.08);
-}
-.title-text {
-    font-size: 28px;
-    font-weight: 700;
-    color: #333;
-}
-.pred-label {
-    font-size: 22px;
-    font-weight: 600;
-}
-</style>
-""", unsafe_allow_html=True)
+st.markdown(BG_HOME, unsafe_allow_html=True)
 
 # ----------------------------------------
 # STATE PAGE
@@ -72,44 +46,38 @@ if "page" not in st.session_state:
 st.sidebar.title("Menu Navigasi")
 if st.sidebar.button("🏠 Beranda"):
     st.session_state.page = "home"
-if st.sidebar.button("🔍 Prediksi Gempa"):
+if st.sidebar.button("📊 Prediksi Gempa"):
     st.session_state.page = "predict"
-
 
 # ============================================================
 # PAGE 1: HOME
 # ============================================================
 if st.session_state.page == "home":
-    st.markdown(bg_home, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div style="
-        background: rgba(0,0,0,0.55);
-        padding: 45px;
-        border-radius: 20px;
-        margin-top: 120px;
-        text-align: center;">
-        <h1 style="color:white; font-size:50px;">
-            🌋 Prediksi Kedalaman Gempa Bumi
-        </h1>
-        <p style="color:white; font-size:20px; margin-top:15px;">
-            Sistem prediksi berbasis model <b>LSTM</b> dan <b>XGBoost</b> 
-            untuk mengklasifikasikan kedalaman gempa bumi menjadi
-            <i>shallow</i>, <i>intermediate</i>, dan <i>deep</i>.
-        </p>
-        <p style="color:white; font-size:18px;">
-            Klik menu di sidebar untuk mulai memprediksi.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="main-block">
+            <h1>🌋 Prediksi Kedalaman Gempa Bumi</h1>
+            <p>
+            Sistem klasifikasi kedalaman gempa bumi menggunakan algoritma
+            <b>LSTM</b> dan <b>XGBoost</b> berdasarkan data gempa BMKG periode 2020–2024.
+            </p>
+            <p>
+            Gunakan menu di sidebar untuk membuka halaman <b>Prediksi Gempa</b>,
+            lalu masukkan parameter kejadian gempa untuk mengetahui apakah
+            hiposenternya dangkal, menengah, atau dalam.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # ============================================================
 # PAGE 2: PREDICTION
 # ============================================================
 elif st.session_state.page == "predict":
-    st.markdown(bg_white, unsafe_allow_html=True)
+    st.markdown(BG_WHITE, unsafe_allow_html=True)
 
-    st.title("🔍 Prediksi Kedalaman Gempa Bumi")
+    st.title("📊 Prediksi Kedalaman Gempa Bumi")
     st.write("Silakan masukkan parameter gempa di bawah ini:")
 
     col1, col2 = st.columns(2)
@@ -121,7 +89,7 @@ elif st.session_state.page == "predict":
         year = st.slider("Tahun Kejadian", 2020, 2024, 2023)
         latitude = st.slider("Latitude", -12.0, 6.0, 0.0, step=0.01)
         longitude = st.slider("Longitude", 95.0, 141.0, 120.0, step=0.01)
-        mag = st.slider("Magnitude (M)", 3.0, 8.0, 5.0)
+        mag = st.slider("Magnitudo (M)", 3.0, 8.0, 5.0)
 
     with col2:
         gap = st.slider("Gap", 10, 300, 80)
@@ -145,36 +113,32 @@ elif st.session_state.page == "predict":
             "rms": rms,
             "horizontalError": horizontalError,
             "depthError": depthError,
-            "magError": magError
+            "magError": magError,
         }
 
         result = predict_depth_class(features)
 
-        st.subheader("📌 Hasil Prediksi Model")
+        st.subheader("🔍 Hasil Prediksi Model")
 
         # ------------------ XGBoost ------------------
-        xgb = result["XGBoost"]
-        st.markdown(f"""
-        <div class="result-card">
-            <div class="title-text">🤖 XGBoost</div>
-            <p class="pred-label">Kelas: <b>{xgb['label']}</b></p>
-            <p style="color:{xgb['color']}; font-size:20px;">
-                Tingkat Bahaya: <b>{xgb['danger']}</b>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        xgb = result.get("XGBoost", {})
+        st.markdown(
+            f"""
+            **XGBoost**
+            - Kelas Kedalaman : `{xgb.get('label', '-')}`
+            - Tingkat Bahaya  : `{xgb.get('danger', '-')}`
+            """,
+        )
 
         # ------------------ LSTM ------------------
-        lstm = result["LSTM"]
-        st.markdown(f"""
-        <div class="result-card">
-            <div class="title-text">🧠 LSTM</div>
-            <p class="pred-label">Kelas: <b>{lstm['label']}</b></p>
-            <p style="color:{lstm['color']}; font-size:20px;">
-                Tingkat Bahaya: <b>{lstm['danger']}</b>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        lstm = result.get("LSTM", {})
+        st.markdown(
+            f"""
+            **LSTM**
+            - Kelas Kedalaman : `{lstm.get('label', '-')}`
+            - Tingkat Bahaya  : `{lstm.get('danger', '-')}`
+            """,
+        )
 
     # Tombol kembali
     if st.button("⬅️ Kembali ke Beranda"):
