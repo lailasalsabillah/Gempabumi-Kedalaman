@@ -9,7 +9,7 @@ import joblib
 
 # Konfigurasi halaman
 st.set_page_config(
-    page_title="Deteksi & Prediksi Kedalaman Gempa",
+    page_title="Klasifikasi Kedalaman Gempa",
     page_icon="🌍",
     layout="wide"
 )
@@ -18,6 +18,7 @@ st.set_page_config(
 @st.cache_resource
 def load_model():
     return joblib.load("models/xgb_depth_class.pkl")
+    return joblib.load("models/lstm_depth_class.pkl")
 
 model = load_model()
 
@@ -80,7 +81,7 @@ def fetch_usgs_indonesia_earthquakes():
 
 # HEADER
 st.title("🌍 Deteksi Gempa + Prediksi Kedalaman Gempa")
-st.markdown("Mengambil data gempa real-time dari USGS dan memprediksi kategori kedalaman gempa menggunakan model Machine Learning.")
+st.markdown("Mengambil data gempa real-time dari USGS dan memprediksi kategori kedalaman gempa menggunakan model Machine Learning dan Deep Learning.")
 
 # Ambil data gempa
 with st.spinner("📡 Mengambil data gempa..."):
