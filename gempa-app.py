@@ -1,52 +1,33 @@
-# -*- coding: utf-8 -*-
+# ============================================================
+# app.py - Aplikasi Streamlit Prediksi Kedalaman Gempa Bumi
+# ============================================================
+
 import streamlit as st
-import pandas as pd
-import os
-from PIL import Image
-from modeling_gunung import recommend
+from modeling_gempa import predict_depth_class
 
-# ==================================
-# CONFIG
-# ==================================
-st.set_page_config(page_title="Mount Jawa", layout="wide")
+# ----------------------------------------
+# PAGE CONFIG
+# ----------------------------------------
+st.set_page_config(
+    page_title="Prediksi Kedalaman Gempa",
+    layout="wide",
+    page_icon="🌋"
+)
 
-# ==================================
-# CSS Tombol Google Maps (DITAMBAHKAN)
-# ==================================
-st.markdown("""
-<style>
-.map-button {
-    display: inline-block;
-    padding: 10px 18px;
-    background-color: #4285F4;
-    color: white !important;
-    border-radius: 10px;
-    text-decoration: none;
-    font-weight: 600;
-    border: 1px solid #3367D6;
-    transition: 0.2s;
-}
-.map-button:hover {
-    background-color: #3367D6;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ==================================
-# CSS untuk dua halaman
-# ==================================
-
-homepage_bg = """
+# ----------------------------------------
+# CSS Background
+# ----------------------------------------
+bg_home = """
 <style>
 [data-testid="stAppViewContainer"] {
-    background-image: url('https://raw.githubusercontent.com/acah21/test3/3c6e1ac5d34c1efc2b113c0c99113b05c4152e6f/background_gunung.jpeg');
+    background-image: url('https://images.unsplash.com/photo-1502126324834-38f0401b37b0?auto=format&fit=crop&w=1350&q=80');
     background-size: cover;
     background-position: center;
 }
 </style>
 """
 
-recommend_bg = """
+bg_white = """
 <style>
 [data-testid="stAppViewContainer"] {
     background: #ffffff !important;
@@ -54,98 +35,146 @@ recommend_bg = """
 </style>
 """
 
-# ==================================
-# STATE
-# ==================================
+# ----------------------------------------
+# CSS Card
+# ----------------------------------------
+st.markdown("""
+<style>
+.result-card {
+    background: #f8f9fa;
+    padding: 22px;
+    border-radius: 15px;
+    border: 1px solid #e1e1e1;
+    margin-bottom: 20px;
+    box-shadow: 1px 2px 6px rgba(0,0,0,0.08);
+}
+.title-text {
+    font-size: 28px;
+    font-weight: 700;
+    color: #333;
+}
+.pred-label {
+    font-size: 22px;
+    font-weight: 600;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ----------------------------------------
+# STATE PAGE
+# ----------------------------------------
 if "page" not in st.session_state:
     st.session_state.page = "home"
 
-# ==================================
-# LOAD DATA
-# ==================================
-df = pd.read_csv("dataset_gunung_fix.csv")
-
-# ==================================
+# ----------------------------------------
 # SIDEBAR
-# ==================================
-st.sidebar.header("Pilih Preferensi Pendakian")
-province = st.sidebar.selectbox("Provinsi:", sorted(df['Province'].unique()))
-difficulty = st.sidebar.selectbox("Tingkat Kesulitan:", sorted(df['difficulty_level'].unique()))
-duration = st.sidebar.slider("Durasi Pendakian (jam):", 1, 20, 5)
+# ----------------------------------------
+st.sidebar.title("Menu Navigasi")
+if st.sidebar.button("🏠 Beranda"):
+    st.session_state.page = "home"
+if st.sidebar.button("🔍 Prediksi Gempa"):
+    st.session_state.page = "predict"
 
-if st.sidebar.button("Tampilkan Rekomendasi ➜"):
-    st.session_state.page = "result"  # pindah halaman
 
-# ==================================
-# PAGE 1: HOMEPAGE
-# ==================================
+# ============================================================
+# PAGE 1: HOME
+# ============================================================
 if st.session_state.page == "home":
-    st.markdown(homepage_bg, unsafe_allow_html=True)
+    st.markdown(bg_home, unsafe_allow_html=True)
 
     st.markdown("""
     <div style="
-        background: rgba(255,255,255,0.85);
-        padding: 40px;
+        background: rgba(0,0,0,0.55);
+        padding: 45px;
         border-radius: 20px;
-        margin-top: 100px;
+        margin-top: 120px;
         text-align: center;">
-        <h1>Selamat Datang di <b>Mount Jawa</b> 🏔️</h1>
-        <p>Aplikasi untuk menemukan rekomendasi gunung terbaik di Pulau Jawa.</p>
-        <p>Pilih preferensi di sidebar, lalu klik tombol rekomendasi.</p>
+        <h1 style="color:white; font-size:50px;">
+            🌋 Prediksi Kedalaman Gempa Bumi
+        </h1>
+        <p style="color:white; font-size:20px; margin-top:15px;">
+            Sistem prediksi berbasis model <b>LSTM</b> dan <b>XGBoost</b> 
+            untuk mengklasifikasikan kedalaman gempa bumi menjadi
+            <i>shallow</i>, <i>intermediate</i>, dan <i>deep</i>.
+        </p>
+        <p style="color:white; font-size:18px;">
+            Klik menu di sidebar untuk mulai memprediksi.
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
-# ==================================
-# PAGE 2: REKOMENDASI
-# ==================================
-elif st.session_state.page == "result":
-    st.markdown(recommend_bg, unsafe_allow_html=True)
+# ============================================================
+# PAGE 2: PREDICTION
+# ============================================================
+elif st.session_state.page == "predict":
+    st.markdown(bg_white, unsafe_allow_html=True)
 
-    user_pref = {
-        "Province": province,
-        "difficulty_level": difficulty,
-        "hiking_duration_hours": duration
-    }
+    st.title("🔍 Prediksi Kedalaman Gempa Bumi")
+    st.write("Silakan masukkan parameter gempa di bawah ini:")
 
-    rec = recommend(user_pref)
+    col1, col2 = st.columns(2)
 
-    st.header("🔥 Rekomendasi Gunung Untuk Kamu")
+    # -----------------------------------
+    # Input Slider
+    # -----------------------------------
+    with col1:
+        year = st.slider("Tahun Kejadian", 2020, 2024, 2023)
+        latitude = st.slider("Latitude", -12.0, 6.0, 0.0, step=0.01)
+        longitude = st.slider("Longitude", 95.0, 141.0, 120.0, step=0.01)
+        mag = st.slider("Magnitude (M)", 3.0, 8.0, 5.0)
 
-    if isinstance(rec, str):
-        st.warning(rec)
-    else:
-        for idx, row in rec.iterrows():
-            st.subheader(row['Name'])
+    with col2:
+        gap = st.slider("Gap", 10, 300, 80)
+        dmin = st.slider("Dmin (km)", 0.0, 30.0, 2.0)
+        rms = st.slider("RMS", 0.0, 2.0, 0.7)
+        horizontalError = st.slider("Horizontal Error", 1.0, 25.0, 8.0)
+        depthError = st.slider("Depth Error", 0.5, 30.0, 5.0)
+        magError = st.slider("Magnitude Error", 0.02, 1.0, 0.1)
 
-            # Gambar rapih
-            img_path = row.get("image_file", None)
-            if img_path and os.path.exists(img_path):
-                try:
-                    img = Image.open(img_path)
-                    img = img.resize((650, 400))
-                    st.image(img)
-                except:
-                    st.write("📷 Tidak bisa membuka gambar")
-            else:
-                st.write("📷 Gambar tidak tersedia")
+    # -----------------------------------
+    # Tombol Prediksi
+    # -----------------------------------
+    if st.button("⚡ Prediksi Sekarang"):
+        features = {
+            "year": year,
+            "latitude": latitude,
+            "longitude": longitude,
+            "mag": mag,
+            "gap": gap,
+            "dmin": dmin,
+            "rms": rms,
+            "horizontalError": horizontalError,
+            "depthError": depthError,
+            "magError": magError
+        }
 
-            # Info
-            st.markdown(f"- **Provinsi:** {row['Province']}")
-            st.markdown(f"- **Elevation:** {row.get('elevation_m', 'N/A')} m")
-            st.markdown(f"- **Difficulty:** {row.get('difficulty_level', 'N/A')}")
-            st.markdown(f"- **Durasi:** {row.get('hiking_duration_hours', 'N/A')} jam")
-            st.markdown(f"- **Recommend For:** {row.get('recommended_for', 'N/A')}")
+        result = predict_depth_class(features)
 
-            # Maps (TOMBOL KOTAK DITAMBAHKAN DI SINI)
-            lat, lon = row.get("Latitude"), row.get("Longitude")
-            if lat and lon:
-                maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
-                st.markdown(
-                    f'<a class="map-button" href="{maps_url}" target="_blank">📍 Lihat di Google Maps</a>',
-                    unsafe_allow_html=True
-                )
+        st.subheader("📌 Hasil Prediksi Model")
 
-            st.markdown("---")
+        # ------------------ XGBoost ------------------
+        xgb = result["XGBoost"]
+        st.markdown(f"""
+        <div class="result-card">
+            <div class="title-text">🤖 XGBoost</div>
+            <p class="pred-label">Kelas: <b>{xgb['label']}</b></p>
+            <p style="color:{xgb['color']}; font-size:20px;">
+                Tingkat Bahaya: <b>{xgb['danger']}</b>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ------------------ LSTM ------------------
+        lstm = result["LSTM"]
+        st.markdown(f"""
+        <div class="result-card">
+            <div class="title-text">🧠 LSTM</div>
+            <p class="pred-label">Kelas: <b>{lstm['label']}</b></p>
+            <p style="color:{lstm['color']}; font-size:20px;">
+                Tingkat Bahaya: <b>{lstm['danger']}</b>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
     # Tombol kembali
     if st.button("⬅️ Kembali ke Beranda"):
