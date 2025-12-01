@@ -7,7 +7,7 @@ import pytz
 
 # Konfigurasi halaman
 st.set_page_config(
-    page_title="Klasifikasi Kedalaman Gempa Bumi Indonesia",
+    page_title="Deteksi Gempa Indonesia",
     page_icon="🌍",
     layout="wide"
 )
@@ -60,6 +60,7 @@ def fetch_usgs_indonesia_earthquakes():
                     "magnitudo": magnitude,
                     "kedalaman": int(depth),
                     "wilayah": place,
+                    "potensi_tsunami": "Tidak berpotensi tsunami" if magnitude < 7.0 else "Berpotensi tsunami",
                     "waktu_kejadian": local_time
                 })
                 
@@ -85,6 +86,7 @@ def create_dummy_data():
             "magnitudo": 4.2,
             "kedalaman": 15,
             "wilayah": "Jakarta Selatan",
+            "potensi_tsunami": "Tidak berpotensi tsunami",
             "waktu_kejadian": datetime.now(pytz.timezone('Asia/Jakarta'))
         },
         {
@@ -95,6 +97,7 @@ def create_dummy_data():
             "magnitudo": 3.8,
             "kedalaman": 22,
             "wilayah": "Surabaya, Jawa Timur",
+            "potensi_tsunami": "Tidak berpotensi tsunami",
             "waktu_kejadian": datetime.now(pytz.timezone('Asia/Jakarta'))
         },
         {
@@ -116,13 +119,14 @@ def create_dummy_data():
             "magnitudo": 5.4,
             "kedalaman": 35,
             "wilayah": "Sulawesi Tengah",
+            "potensi_tsunami": "Tidak berpotensi tsunami",
             "waktu_kejadian": datetime.now(pytz.timezone('Asia/Jakarta'))
         }
     ]
     return pd.DataFrame(dummy_data)
 
 # Header aplikasi
-st.title("🌍 Klasifikasi Gempa Bumi Indonesia")
+st.title("🌍 Deteksi Gempa Bumi Indonesia")
 st.markdown("Aplikasi monitoring gempa bumi real-time di wilayah Indonesia")
 
 # Ambil data gempa
@@ -136,7 +140,7 @@ with st.spinner("📡 Mengambil data gempa..."):
 if not earthquake_data.empty:
     sample_location = earthquake_data.iloc[0]['wilayah']
     if any(keyword in sample_location.lower() for keyword in ['km', 'of', 'near']):
-        st.info("📊 **Sumber Data:** USGS - Data gempa area Indonesia (Tahun 2020-2024)")
+        st.info("📊 **Sumber Data:** USGS - Data gempa area Indonesia (7 hari terakhir)")
     else:
         st.info("📊 **Sumber Data:** Data gempa Indonesia")
 
