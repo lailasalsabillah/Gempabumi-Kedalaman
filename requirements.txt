@@ -1,7 +1,6 @@
-streamlit==1.30.0
-pandas>=1.5
-numpy>=1.23
-matplotlib>=3.5
-# Jika nanti ingin menambahkan model ML (XGBoost, tensorflow), tambahkan di sini:
-# xgboost==1.7.6
-# tensorflow==2.11.0
+streamlit
+pandas
+numpy
+scikit-learn
+xgboost
+joblib
