@@ -1,102 +1,104 @@
-# Aplikasi Streamlit: klasifikasi kedalaman gempa
-# Ganti file ini pada repo untuk memperbarui UI dan kemampuan upload CSV
+# ============================================================
+# STREAMLIT - KLASIFIKASI KEDALAMAN GEMPA
+# Menggunakan LSTM & XGBoost
+# ============================================================
+
 import streamlit as st
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from io import BytesIO
+import pandas as pd
+import joblib
+from tensorflow.keras.models import load_model
 
-st.set_page_config(page_title="Klasifikasi Kedalaman Gempa", layout="centered")
-
-def classify_depth(depth_km):
-    """
-    Klasifikasi kedalaman gempa dalam kilometer:
-    - Dangkal: depth < 70 km
-    - Menengah: 70 <= depth <= 300 km
-    - Dalam: depth > 300 km
-    """
-    try:
-        d = float(depth_km)
-    except:
-        return "Tidak valid"
-    if d < 70:
-        return "Dangkal (<70 km)"
-    elif d <= 300:
-        return "Menengah (70–300 km)"
-    else:
-        return "Dalam (>300 km)"
-
-st.title("Klasifikasi Kedalaman Gempa Bumi")
-st.write(
-    "Aplikasi sederhana untuk mengklasifikasikan kedalaman gempa (km). "
-    "Mode: Manual atau Upload CSV. CSV harus mempunyai kolom 'depth' atau 'depth_km' dalam satuan kilometer."
+# ------------------------------------------------------------
+# CONFIG
+# ------------------------------------------------------------
+st.set_page_config(
+    page_title="Prediksi Kedalaman Gempa",
+    layout="wide",
+    page_icon="🌋"
 )
 
-st.sidebar.header("Pengaturan")
-input_mode = st.sidebar.selectbox("Mode Input", ["Manual", "Upload CSV"])
-show_sample = st.sidebar.checkbox("Tampilkan contoh CSV & unduh", value=False)
+st.title("🌋 Prediksi Kelas Kedalaman Gempa Bumi")
+st.write("Model menggunakan **LSTM** & **XGBoost** yang dilatih pada data 2020–2024.")
 
-if show_sample:
-    sample_df = pd.DataFrame({"depth_km": [5, 50, 120, 230, 400]})
-    st.markdown("Contoh format CSV (kolom: depth_km):")
-    st.dataframe(sample_df)
-    csv_bytes = sample_df.to_csv(index=False).encode("utf-8")
-    st.download_button("Unduh contoh CSV", data=csv_bytes, file_name="sample_depth.csv", mime="text/csv")
+# ------------------------------------------------------------
+# LOAD MODEL
+# ------------------------------------------------------------
+scaler = joblib.load("models/scaler.pkl")
+xgb_model = joblib.load("models/xgb_depth_class.pkl")
+lstm_model = load_model("models/lstm_depth_class.keras")
 
-if input_mode == "Manual":
-    depth = st.slider("Pilih kedalaman gempa (km):", min_value=0.0, max_value=700.0, value=10.0, step=0.1)
-    label = classify_depth(depth)
-    st.subheader("Hasil Klasifikasi")
-    st.markdown(f"- Kedalaman: **{depth:.1f} km**\n- Kategori: **{label}**")
-    st.info("Aturan klasifikasi:\n- Dangkal: < 70 km\n- Menengah: 70–300 km\n- Dalam: > 300 km")
-else:
-    uploaded_file = st.file_uploader("Unggah CSV (kolom: depth atau depth_km)", type=["csv"])
-    if uploaded_file is not None:
-        try:
-            df = pd.read_csv(uploaded_file)
-            # Normalisasi nama kolom
-            if "depth" in df.columns and "depth_km" not in df.columns:
-                df["depth_km"] = df["depth"]
-            if "depth_km" not in df.columns:
-                st.error("Kolom tidak ditemukan. Harap sertakan kolom 'depth' atau 'depth_km' (dalam km).")
-                st.stop()
+label_map = {
+    0: "Shallow (<70 km)",
+    1: "Intermediate (70–300 km)",
+    2: "Deep (>300 km)"
+}
 
-            df["depth_km"] = pd.to_numeric(df["depth_km"], errors="coerce")
-            before = len(df)
-            df = df.dropna(subset=["depth_km"]).reset_index(drop=True)
-            after = len(df)
-            if after < before:
-                st.warning(f"{before-after} baris dibuang karena nilai kedalaman tidak valid.")
+danger_map = {
+    0: ("Bahaya Tinggi", "red"),
+    1: ("Bahaya Sedang", "orange"),
+    2: ("Bahaya Rendah", "green")
+}
 
-            df["kategori"] = df["depth_km"].apply(classify_depth)
+# ------------------------------------------------------------
+# INPUT FEATURES
+# ------------------------------------------------------------
+st.subheader("🔧 Input Parameter Gempa")
 
-            st.subheader("Preview Data")
-            st.dataframe(df.head(200))
+col1, col2 = st.columns(2)
 
-            st.subheader("Ringkasan Kategori")
-            counts = df["kategori"].value_counts().reindex([
-                "Dangkal (<70 km)",
-                "Menengah (70–300 km)",
-                "Dalam (>300 km)"
-            ]).fillna(0).astype(int)
-            st.table(counts.rename("jumlah"))
+with col1:
+    year = st.slider("Tahun Kejadian", 2020, 2024, 2023)
+    latitude = st.slider("Latitude", -12.0, 6.0, 0.0, step=0.01)
+    longitude = st.slider("Longitude", 95.0, 141.0, 120.0, step=0.01)
+    mag = st.slider("Magnitude", 3.0, 8.0, 5.0)
 
-            st.subheader("Histogram Kedalaman")
-            fig, ax = plt.subplots(figsize=(8,4))
-            ax.hist(df["depth_km"], bins=30, color="#2b8cbe", edgecolor="black")
-            ax.set_xlabel("Kedalaman (km)")
-            ax.set_ylabel("Frekuensi")
-            ax.set_title("Distribusi Kedalaman Gempa")
-            st.pyplot(fig)
+with col2:
+    gap = st.slider("Gap", 10, 300, 80)
+    dmin = st.slider("Dmin", 0.0, 30.0, 2.0)
+    rms = st.slider("RMS", 0.0, 2.0, 0.7)
+    horizontalError = st.slider("Horizontal Error", 1.0, 25.0, 8.0)
+    depthError = st.slider("Depth Error", 0.5, 30.0, 5.0)
+    magError = st.slider("Magnitude Error", 0.02, 1.0, 0.1)
 
-            # Tombol unduh hasil klasifikasi
-            csv_out = df.to_csv(index=False).encode("utf-8")
-            st.download_button("Unduh hasil klasifikasi (CSV)", data=csv_out, file_name="hasil_klasifikasi_depth.csv", mime="text/csv")
+# ------------------------------------------------------------
+# PREDIKSI
+# ------------------------------------------------------------
+input_data = np.array([[year, latitude, longitude, mag, gap, dmin, rms,
+                        horizontalError, depthError, magError]])
 
-        except Exception as e:
-            st.error(f"Gagal memproses file CSV: {e}")
-    else:
-        st.info("Unggah file CSV untuk melihat analisis. Atau beralih ke mode Manual.")
+scaled_data = scaler.transform(input_data)
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("Pengembang: Anda — Klasifikasi berdasarkan rentang kedalaman standar (dangkal/menengah/dalam).")
+# XGBoost Prediction
+pred_xgb = xgb_model.predict(input_data)[0]
+
+# LSTM Prediction
+lstm_input = scaled_data.reshape(1, 1, scaled_data.shape[1])
+pred_lstm = np.argmax(lstm_model.predict(lstm_input), axis=1)[0]
+
+# ------------------------------------------------------------
+# TOMBOL PREDIKSI
+# ------------------------------------------------------------
+if st.button("🔍 Prediksi Kedalaman"):
+    st.subheader("Hasil Prediksi")
+
+    col3, col4 = st.columns(2)
+
+    # XGBoost
+    with col3:
+        kelas = pred_xgb
+        label = label_map[kelas]
+        danger, color = danger_map[kelas]
+        st.markdown(f"### 🤖 XGBoost")
+        st.markdown(f"**Kelas Kedalaman:** {label}")
+        st.markdown(f"**Tingkat Bahaya:** <span style='color:{color};'>{danger}</span>", unsafe_allow_html=True)
+
+    # LSTM
+    with col4:
+        kelas2 = pred_lstm
+        label2 = label_map[kelas2]
+        danger2, color2 = danger_map[kelas2]
+        st.markdown(f"### 🧠 LSTM")
+        st.markdown(f"**Kelas Kedalaman:** {label2}")
+        st.markdown(f"**Tingkat Bahaya:** <span style='color:{color2};'>{danger2}</span>", unsafe_allow_html=True)
+
